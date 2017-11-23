@@ -49,8 +49,6 @@ get.age.group <- function(age, age_groups) {
   result
 }
 
-get.age.group(25, age_groups)
-
 # 1096 entries without an age group, but have an age. Assign them age groups using age_groups object
 collapsed_ages <- calldata_with_notes %>%
   filter(is.na(`Age Group`), !is.na(Age)) %>%
@@ -68,7 +66,7 @@ cleaner_calldata <- calldata_with_notes %>%
 # filter(cleaner_calldata, is.na(`Age Group`), !is.na(Age))
 
 # Cleanup for next step
-rm(age_groups, maxAge, collapsed_ages, calldata_with_notes)
+rm(age_groups, maxAge, collapsed_ages, get.age.group)
 
 #------------------------------
 # MISSING GENDERS
@@ -115,16 +113,24 @@ pronouns_breakdown <- left_join(females_count, males_count, c("Call ID")) %>%
 # Resulted in 750 values that were classified
 collapsed_genders <- pronouns_breakdown %>% select(`Call ID`, `Probable Gender`)
 
-# Combine with previously cleaned data
+# Combine with previously cleaned data, replaces all M or F with full gender names
 cleanest_calldata <- cleaner_calldata %>%
   left_join(collapsed_genders) %>%
-  mutate(`Gender` = ifelse(is.na(`Gender`), `Probable Gender`, `Gender`)) %>%
-  mutate(`Gender` = ifelse(`Gender` == 'F' || `Gender` == 'f', "Female", `Gender` )) %>% 
-  mutate(`Gender` = ifelse(`Gender` == 'M'|| `Gender` == 'm', "Male", `Gender` )) %>% 
+  mutate(`Gender` = ifelse(is.na(Gender), `Probable Gender`, Gender)) %>%
+  rowwise() %>% mutate(Gender = ifelse(Gender == 'Female', 'F', Gender )) %>% 
+  rowwise() %>% mutate(Gender = ifelse(Gender == 'Male', 'M', Gender )) %>% 
+  mutate(Gender = ifelse(Gender == 'Unknown', NA , Gender)) %>% 
   select(-`Probable Gender`)
 
-# Cleanup
-rm(cleaner_calldata, female, male, pronouns, females_count, males_count, pronouns_breakdown, collapsed_genders,wordslest)
-
+# Final data
 summary(cleanest_calldata)
 View(cleanest_calldata)
+
+# Cleanup
+rm(genderless_notes, female, male, pronouns, females_count, males_count, pronouns_breakdown, collapsed_genders, wordslist)
+#Optional: write to csv
+# write.csv(cleanest_calldata, 'final_data.csv')
+
+# Total changes:
+# 1096 records now have an age
+# 750 records now have a gender
